@@ -2,48 +2,39 @@ close all;
 clear all;
 clc;
 
-%optimize d for cs1=305, cs2=94
-%besser 2^13=8192 sampling points
+%-------------SETTINGS-------------
 
 gamma13C = 10.7084*10^6; %Hz/T
 B0 = 3; %T
-rf_center_ppm = 169.7; %ppm, besser zentriert wärs mit 169.7 ppm SO ZENTRIEREN DASS LACTAT UND ACETAT SYMMETRISCH SIND, DAMIT D FÜR BEIDE OPTIMIERT IST 1/(TR*d*w)=k*4*pi (i.A. nur für 2 Substanzen erfüllbar)
-bw = 1200; %Hz %reichen würde 1200
+rf_center_ppm = 169.7; 
+bw = 1200; 
 chemicalSpecies = "Lactate";
-corrOffset = 1;
+%corrOffset = 1;
 fitIncludeHeightLimit = 0.05;
 scaleHzFit = 10;
 scalePpmFit = 1;
+path = "C:\Users\menze\Desktop\Matlab\MR_Data\13_03_2023\SpectrumLac\31";
 
-path = "C:\Users\Stefan Menzel\Desktop\Matlab\MR_Data\13_03_2023\SpectrumLac\31"+"\data.mat";
+%-------------END OF SETTINGS-------------
 
-%C:\Users\menze\Desktop\Matlab\MR_Data\Spektrum_all_converted\data.mat"
-%C:\Users\menze\Desktop\Matlab\MR_Data\Spektrum_all_converted\par.mat"
-%"C:\Users\Stefan Menzel\Desktop\Matlab\MR_Data\Spektrum_all_converted\data.mat"
-%"C:\Users\Stefan Menzel\Desktop\Matlab\MR_Data\Spektrum_all_converted\par.mat"
+load(path+"\data.mat");
 
-%load("C:\Users\menze\Desktop\Matlab\MR_Data\Spektrum_all_converted\data.mat");
-%load("C:\Users\menze\Desktop\Matlab\MR_Data\Spektrum_all_converted\par.mat");
-
-load(path);
-%load("C:\Users\Stefan Menzel\Desktop\Matlab\MR_Data\Spektrum_all_converted\par.mat");
-
-Data = mean(squeeze(Data),2);%-mean(Data(intervalWithNoPeaks));
+Data = mean(squeeze(Data),2);
+Data = phaseCorrect(Data);
+spectrum = fft(Data);
 
 f_ref = gamma13C*B0; %Hz
-rf_center = rf_center_ppm*f_ref+f_ref; %Hz
+rf_center = rf_center_ppm*f_ref+f_ref; %Hz %Tobi fragen: passt das so
 X_Hz = linspace(-bw/2+rf_center, bw/2+rf_center, length(Data)); %absolute frequency (Hz)
 X_Hz_rel = linspace(-bw/2, bw/2, length(Data)); %Chemical shift (Hz)
 X_ppm = ((X_Hz-f_ref)/f_ref-rf_center_ppm)*10^6; %Chemical shift (ppm) %Tobi fragen: wenn relativ to TMS, dann -f_TMS_ppm statt -rf_center_ppm
 
-spectrum = fftshift(fft(Data));
+% 0th order phase correction with respect to highest peak
+% [highestPeak, maxIndex] = max(abs(spectrum));
+% phaseAngleRad = angle(spectrum(maxIndex+corrOffset));
+% spectrum = spectrum*exp(-1i*phaseAngleRad);
 
-%0th order phase correction with respect to highest peak
-[highestPeak, maxIndex] = max(abs(spectrum));
-phaseAngleRad = angle(spectrum(maxIndex+corrOffset));
-spectrum = spectrum*exp(-1i*phaseAngleRad);
-
-%Baseline correction, normalization and smoothing
+%Baseline correction and normalization
 sReal = real(spectrum)-median(real(spectrum));
 sReal = sReal/max(sReal);
 
@@ -64,8 +55,6 @@ saveas(fig1, path+chemicalSpecies+"_Samples.svg");
 fig2 = figure('WindowState', 'maximized');
 ax2 = gca;
 plot(ax2, X_Hz_rel, sReal);
-xlabel("Chemical Shift (Hz) relative to RF_center = "+num2str(rf_center/10^6)+" MHz", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
-ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 title("Spectrum of "+chemicalSpecies, "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 fitfunction="(1/pi)*((FWHM/2)/((x/"+num2str(scaleHzFit)+"-x0/"+num2str(scaleHzFit)+")^2+(FWHM/2)^2))";
 coeffs=["FWHM" "x0"];
@@ -86,14 +75,14 @@ plot(ax2,ft,"r");
 hold on;
 plot(ax2, X_Hz_t(indices),double(sReal(indices)),"o","Color","m");
 legend("Amplitude (a. u.)", "Fit with Lorentzian", "Points included into fit");
+xlabel(string("Chemical Shift (Hz) relative to RFcenter = "+num2str(rf_center/10^6)+" MHz"), "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
+ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 saveas(fig2, path+chemicalSpecies+"_Hz.fig");
 saveas(fig2, path+chemicalSpecies+"_Hz.svg");
 
 fig3 = figure('WindowState', 'maximized');
 ax3 = gca;
 plot(ax3,X_ppm,sReal);
-xlabel("Chemical shift (ppm) relative to RF_center = "+num2str(rf_center_ppm)+" ppm", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
-ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 fitfunction="(1/pi)*((FWHM/2)/((x/"+num2str(scalePpmFit)+"-x0/"+num2str(scalePpmFit)+")^2+(FWHM/2)^2))";
 coeffs=["FWHM" "x0"];
 options=fitoptions('Method','NonlinearLeastSquares','Lower',[-inf -inf],'Upper',[inf inf],'StartPoint',[1 round(mean(X_Hz_rel))]);
@@ -113,6 +102,8 @@ title("Spectrum of "+chemicalSpecies, "interpreter", "latex", 'fontweight', 'bol
 hold on;
 plot(ax3, X_ppm_t(indices),double(sReal(indices)),"o","Color","m");
 legend("Amplitude (a. u.)", "Fit with Lorentzian", "Points included into fit");
+xlabel(string("Chemical shift (ppm) relative to RFcenter = "+num2str(rf_center_ppm)+" ppm"), "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
+ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 saveas(fig3, path+chemicalSpecies+"_ppm.fig");
 saveas(fig3, path+chemicalSpecies+"_ppm.svg");
 
@@ -125,4 +116,4 @@ title("Modulus of the spectrum of "+chemicalSpecies, "interpreter", "latex", 'fo
 saveas(fig4, path+chemicalSpecies+"_abs.fig");
 saveas(fig4, path+chemicalSpecies+"_abs.svg");
 
-close all; 
+%close all; 

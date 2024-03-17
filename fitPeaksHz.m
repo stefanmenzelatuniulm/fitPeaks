@@ -15,6 +15,7 @@ increaseSliderStepResolutionFactor = 32; %Increases the default slider resolutio
 annotationXOffset = 0; %Offset of fit parameter annotation in X direction, if there is significant overlap with the plot
 path = "C:\Users\menze\Desktop\Matlab\MR_Data\13_03_2023\SpectrumLac\31"; %Path to data
 attemptFit = true; %Attempt to fit single Lorentzian
+selectPivot = false; %Select pivot point where 0th order phase correction was applied
 
 %-------------END OF SETTINGS-------------
 
@@ -42,12 +43,16 @@ title("Click on slider, then adjust slider with arrow keys for 0th order phase c
 legend("Real part of the spectrum", "Median of the real part of the spectrum ~ noise floor")
 xlabel(string("Chemical Shift (Hz) relative to $\mathrm{RF_{center}}$ = "+num2str(rf_center/10^6)+" MHz"), "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14); %Tobi fragen: Wert erscheint eine Größenordnung zu hoch
 ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
-h = uicontrol('style','slider','units','pixel','position',[20 20 300 20],'Min',0,'Max',2*pi); %-> Tobi fragen: Grenzen sinnvoll? Kann nicht mehr als phase 2*pi von imag=0 entfernt sein
-sliderStep = get(h, "SliderStep");
-set(h, "SliderStep", sliderStep/increaseSliderStepResolutionFactor);
+h1 = uicontrol('style','slider','units','pixel','position',[20 20 300 20],'Min',0,'Max',2*pi);%-> Tobi fragen: Grenzen sinnvoll? Kann nicht mehr als phase 2*pi von imag=0 entfernt sein
+h2 = uicontrol('style','slider','units','pixel','position',[20 40 300 20],'Min',0,'Max',2*pi);
+sliderStep = get(h1, "SliderStep");
+set(h1, "SliderStep", sliderStep/increaseSliderStepResolutionFactor);
+sliderStep = get(h2, "SliderStep");
+set(h2, "SliderStep", sliderStep/increaseSliderStepResolutionFactor);
 %h(2) = uicontrol('style','slider','units','pixel','position',[20 40 300
 %20],'Min',0,'Max',pi); %NUR DIE ERSTE KOMPONENTE WIRD AN makeplot ÜBERGEBEN !/(%(!/"%/("§%
-addlistener(h,'ContinuousValueChange', @(hObject, event) makeplot0(hObject, event, Data, plotHandle));
+test1 = addlistener(h1,'ContinuousValueChange', @(hObject, event) makeplot0(hObject, event, Data, plotHandle));
+test2 = addlistener(h2,'ContinuousValueChange', @(hObject, event) makeplot1(hObject, event, Data, plotHandle));
 pause;
 phi0 = get(h, "Value");
 
@@ -56,32 +61,36 @@ Data = Data.*exp(-1i*phi0);
 
 close all;
 
-%Select peak where 0th order phase correction was applied as pivot
-disp("Select peak where 0th order phase correction was applied");
-figure('WindowState', 'maximized');
-ax = gca;
-spectrum = fftshift(fft(Data));
-sReal = real(spectrum);
-plot(ax, X_Hz_rel, sReal);
-hold on;
-[mn, index] = min(abs(X_Hz_rel-mean(X_Hz_rel)));
-plotHandle = plot(ax, mn, sReal(index),"Marker","o","MarkerSize",12);
-title("Click on slider, then adjust slider with arrow keys to select peak where 0th order phase correction was applied, then minimize figure and press Enter in Command Window");
-legend("Real part of the spectrum");
-xlabel(string("Chemical Shift (Hz) relative to $\mathrm{RF_{center}}$ = "+num2str(rf_center/10^6)+" MHz"), "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14); 
-ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
-h = uicontrol('style','slider','units','pixel','position',[20 20 300 20],'Min',min(X_Hz_rel),'Max',max(X_Hz_rel)); 
-sliderStep = get(h, "SliderStep");
-set(h, "SliderStep", [1/length(X_Hz_rel) 1/length(X_Hz_rel)]);
-addlistener(h,'ContinuousValueChange', @(hObject, event) makeplot3(hObject, event, sReal, X_Hz_rel, plotHandle));
-pause;
-X0 = get(h, "Value");
+if selectPivot
+    %Select peak where 0th order phase correction was applied as pivot
+    disp("Select peak where 0th order phase correction was applied");
+    figure('WindowState', 'maximized');
+    ax = gca;
+    spectrum = fftshift(fft(Data));
+    sReal = real(spectrum);
+    plot(ax, X_Hz_rel, sReal);
+    hold on;
+    [mn, index] = min(abs(X_Hz_rel-mean(X_Hz_rel)));
+    plotHandle = plot(ax, mn, sReal(index),"Marker","o","MarkerSize",12);
+    title("Click on slider, then adjust slider with arrow keys to select peak where 0th order phase correction was applied, then minimize figure and press Enter in Command Window");
+    legend("Real part of the spectrum");
+    xlabel(string("Chemical Shift (Hz) relative to $\mathrm{RF_{center}}$ = "+num2str(rf_center/10^6)+" MHz"), "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14); 
+    ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
+    h = uicontrol('style','slider','units','pixel','position',[20 20 300 20],'Min',min(X_Hz_rel),'Max',max(X_Hz_rel)); 
+    sliderStep = get(h, "SliderStep");
+    set(h, "SliderStep", [1/length(X_Hz_rel) 1/length(X_Hz_rel)]);
+    addlistener(h,'ContinuousValueChange', @(hObject, event) makeplot3(hObject, event, sReal, X_Hz_rel, plotHandle));
+    pause;
+    X0 = get(h, "Value");
+else
+    X0 = 0;
+end
 
 %Determine 1st order phase correction
 disp("Adjust 1st order phase correction");
 figure('WindowState', 'maximized');
 ax = gca;
-plotHandle = plot(ax, X_Hz_rel, sReal);
+plotHandle = plot(ax, X_Hz_rel, real(spectrum));
 hold on;
 Y = median(real(spectrum))*ones(length(X_Hz_rel));
 Y = [Y(1) Y(end)];

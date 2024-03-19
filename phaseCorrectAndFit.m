@@ -9,14 +9,15 @@ gamma13C = 10.7084*10^6; %gyromagnetic ration of 13C (Hz/T)
 B0 = 3; %B0 of the scanner (T)
 rf_center_ppm = 169.7; %Center of the RF pulse (ppm) %IST SCHON RELATIV ZU TMS
 bw = 1200; %Bandwidth of the RF pulse (Hz)
-chemicalSpecies = "Lactate"; %Name(s) of the chemical species in the spectrum
-scaleHzFit = 15; %Scaling factor for the x axis only in the context of the Lorentzian fit (CARE: very sensitive)
+chemicalSpecies = "Bicarbonate, Alanine, Lactate"; %Name(s) of the chemical species in the spectrum
+scaleHzFit = 10; %Scaling factor for the x axis only in the context of the Lorentzian fit (CARE: very sensitive)
 scalePpmFit = 0.5;
 increaseSliderStepResolutionFactor = 32; %Increases the default slider resolution by this factor, relevant for phase correction
+increasePhi1LimitsFactor = 5;
 annotationXOffset = 0; %Offset of fit parameter annotation in X direction, if there is significant overlap with the plot
-path = "C:\Users\Stefan Menzel\Desktop\Matlab\MR_Data\13_03_2023\SpectrumLac\31"; %Path to data
-attemptLorentzianFit = true; %Attempt to fit single Lorentzian
-attemptFIDFit = true;
+path = "C:\Users\menze\Desktop\Matlab\MR_Data\13_03_2023\SpectrumBicAlaLac\27"; %Path to data
+attemptLorentzianFit = false; %Attempt to fit single Lorentzian
+attemptFIDFit = false;
 
 %-------------END OF SETTINGS-------------
 
@@ -57,7 +58,7 @@ saveas(fig, path+chemicalSpecies+"_FID.svg");
 close all;
 
 %Determine spectrum
-spectrum = fftshift(fft(Data));
+spectrum = myFFT(Data,0);
 
 %Determine x Axis
 f_ref = gamma13C*B0; %Hz
@@ -70,7 +71,7 @@ X_Sample = linspace(1, length(Data), length(Data));
 [highestPeak, maxIndex] = max(abs(spectrum));
 phaseAngleRad = angle(spectrum(maxIndex));
 Data = Data*exp(-1i*phaseAngleRad);
-spectrum = fftshift(fft(Data));
+spectrum = myFFT(Data,0);
 
 %Plot phase angle of spectrum 
 fig = figure('WindowState', 'maximized');
@@ -113,11 +114,11 @@ Y = median(sReal)*ones(length(X_Sample));
 Y = [Y(1) Y(end)];
 X = [X_Sample(1) X_Sample(end)];
 S.p2 = plot(S.ax, X, Y, "Color", "m");
-S.p3 = plot(S.ax, X_Sample(maxIndex), sReal(maxIndex),"Color", "r","Marker","o","MarkerSize",12);
+S.l = xline(S.pivot);
 update(S);
-S.phi0Slider = uicontrol('style', 'slider', 'unit','normalized', 'position', [0.1 0.073 0.8 0.025], 'min', 0, 'max', 2*pi, 'value', 0, 'sliderstep',[0.01 0.1]/increaseSliderStepResolutionFactor, 'callback', {@SliderCB, 'phi0'}); 
+S.phi0Slider = uicontrol('style', 'slider', 'unit','normalized', 'position', [0.1 0.073 0.8 0.025], 'min', -pi, 'max', pi, 'value', 0, 'sliderstep',[0.01 0.1]/increaseSliderStepResolutionFactor, 'callback', {@SliderCB, 'phi0'}); 
 txtphi0 = uicontrol('Style', 'text', 'unit', 'normalized', 'position', [0 0.073 0.1 0.025], 'String', '0th order phase correction', 'BackgroundColor', "White", 'HorizontalAlignment', 'Center');
-S.phi1Slider = uicontrol('style','slide', 'unit', 'normalized', 'position', [0.1 0.048 0.8 0.025], 'min', 0, 'max', 2*pi, 'value', 0, 'sliderstep',[0.01 0.1]/increaseSliderStepResolutionFactor, 'callback', {@SliderCB, 'phi1'});
+S.phi1Slider = uicontrol('style','slide', 'unit', 'normalized', 'position', [0.1 0.048 0.8 0.025], 'min', -increasePhi1LimitsFactor*pi, 'max', increasePhi1LimitsFactor*pi, 'value', 0, 'sliderstep',[0.01 0.1]/(increasePhi1LimitsFactor*increaseSliderStepResolutionFactor), 'callback', {@SliderCB, 'phi1'});
 txtphi1 = uicontrol('Style','text', 'unit', 'normalized', 'position', [0 0.048 0.1 0.025], 'String', '1st order phase correction', 'BackgroundColor', "White", 'HorizontalAlignment', 'Center');  
 S.pivotSlider = uicontrol('style','slide', 'unit', 'normalized', 'position', [0.1 0.023 0.8 0.025], 'min', min(X_Sample), 'max', max(X_Sample), 'value', X_Sample(maxIndex), 'sliderstep',[0.01 0.1]/increaseSliderStepResolutionFactor, 'callback', {@SliderCB, 'pivot'});
 txtPivot = uicontrol('Style','text', 'unit', 'normalized', 'position', [0 0.023 0.1 0.025], 'String', 'Pivot', 'BackgroundColor', "White", 'HorizontalAlignment', 'Center');   
@@ -134,10 +135,9 @@ phi1 = get(S.phi1Slider, "Value");
 pivot = get(S.pivotSlider, "Value");
 
 %Apply 0th and 1st order phase correction
-[mn, index] = min(abs(X_Sample-pivot));
-Phi = transpose(angleFunction(X_Sample, phi0, phi1, X_Sample(index), length(X_Sample)));
-Data = Data.*exp(-1i*Phi);
-sReal = real(fftshift(fft(Data)));
+phi1 = phi1/max(X_Sample);
+C = exp(-1i*(phi0-pivot*phi1));
+sReal = real(myFFT(C.*S.Data, phi1));
 
 %Baseline correction and normalization -> Sinnvoll? Tobi fragen
 sReal = sReal-median(sReal); %Wenn das noise level konsequent über 0 wäre, wäre doch der median entsprechend über 0? nicht mean verwenden, da peaks nicht mit einbezogen werden sollen
@@ -212,23 +212,18 @@ close all;
 function SliderCB(aSlider, EventData, Param)
     S = guidata(aSlider); 
     S.(Param) = get(aSlider, 'Value');  
-    update(S); 
     guidata(aSlider, S); 
+    update(S); 
 end
 
 function update(S)
-    [mn, index] = min(abs(S.X_Sample-S.pivot));
-    set(S.p3, "Xdata", S.X_Sample(index));
-    realSpectrum = real(fftshift(fft(S.Data)));
-    set(S.p3, "Ydata", realSpectrum(index));
-    Phi = transpose(angleFunction(S.X_Sample, S.phi0, S.phi1, S.X_Sample(index), length(S.X_Sample)));
-    S.Data = S.Data.*exp(-1i*Phi);
-    realSpectrum = real(fftshift(fft(S.Data)));
+    X = S.X_Sample;
+    p = S.pivot;
+    phi1Temp = S.phi1/max(X);
+    phi0Temp = S.phi0;
+    C = exp(-1i*(phi0Temp-p*phi1Temp));
+    temp = S.Data;
+    realSpectrum = real(myFFT(C.*temp, phi1Temp));
     set(S.p1, 'YData', realSpectrum); 
-    set(S.p3, "Xdata", S.X_Sample(index));
-    set(S.p3, "Ydata", realSpectrum(index));
-end
-
-function phi = angleFunction(x, phi0, phi1, pivot, N)
-    phi = phi0+phi1*(x-pivot)/N;
+    set(S.l, "Value", p);
 end

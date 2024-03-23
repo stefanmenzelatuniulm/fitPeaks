@@ -21,6 +21,7 @@ attemptFIDFit = true;
 
 %-------------END OF SETTINGS-------------
 
+%Reco-PC returns complex signal (not spectrum)
 load(path+"\data.mat");
 
 %Average over the number of averages 

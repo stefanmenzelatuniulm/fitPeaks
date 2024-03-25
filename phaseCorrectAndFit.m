@@ -9,15 +9,15 @@ gamma13C = 10.7084*10^6; %gyromagnetic ration of 13C (Hz/T)
 B0 = 3; %B0 of the scanner (T)
 rf_center_ppm = 173.66; %Center of the RF pulse (ppm) %IST SCHON RELATIV ZU TMS
 bw = 500; %Bandwidth of the RF pulse (Hz)
-chemicalSpecies = "Alanine"; %Name(s) of the chemical species in the spectrum
+chemicalSpecies = "Bicarbonate, Alanine, Lactate"; %Name(s) of the chemical species in the spectrum
 scaleHzFit = 10; %Scaling factor for the x axis only in the context of the Lorentzian fit (CARE: very sensitive)
 scalePpmFit = 0.28;
 increaseSliderStepResolutionFactor = 32; %Increases the default slider resolution by this factor, relevant for phase correction
 increasePhi1LimitsFactor = 5;
 annotationXOffset = 0; %Offset of fit parameter annotation in X direction, if there is significant overlap with the plot
-path = "C:\Users\Stefan Menzel\Desktop\Matlab\MR_Data\2024_03_22\SpectrumAla\107"; %Path to data
-attemptLorentzianFit = true; %Attempt to fit single Lorentzian
-attemptFIDFit = true;
+path = "C:\Users\menze\Desktop\Matlab\MR_Data\2024_03_13\SpectrumBicAlaLac\27"; %Path to data
+attemptLorentzianFit = false; %Attempt to fit single Lorentzian
+attemptFIDFit = false;
 
 %-------------END OF SETTINGS-------------
 
@@ -109,7 +109,7 @@ S.phi1 = 0;
 sReal = real(spectrum);
 S.p1 = plot(S.ax, X_ppm_rel, sReal);
 hold on;
-S.pivot = X_ppm_rel(maxIndex);
+S.pivot = (X_ppm_rel(maxIndex)-min(X_ppm_rel))/(max(X_ppm_rel)-min(X_ppm_rel));
 hold on;
 Y = median(sReal)*ones(length(X_ppm_rel));
 Y = [Y(1) Y(end)];
@@ -118,9 +118,9 @@ S.p2 = plot(S.ax, X, Y, "Color", "m");
 S.l = xline(S.pivot);
 S.phi0Slider = uicontrol('style', 'slider', 'unit','normalized', 'position', [0.1 0.073 0.8 0.025], 'min', -pi, 'max', pi, 'value', 0, 'sliderstep',[0.01 0.1]/increaseSliderStepResolutionFactor, 'callback', {@SliderCB, 'phi0'}); 
 txtphi0 = uicontrol('Style', 'text', 'unit', 'normalized', 'position', [0 0.073 0.1 0.025], 'String', '0th order phase correction', 'BackgroundColor', "White", 'HorizontalAlignment', 'Center');
-S.phi1Slider = uicontrol('style','slide', 'unit', 'normalized', 'position', [0.1 0.048 0.8 0.025], 'min', -increasePhi1LimitsFactor*pi, 'max', increasePhi1LimitsFactor*pi, 'value', 0, 'sliderstep',[0.01 0.1]/(increasePhi1LimitsFactor*increaseSliderStepResolutionFactor), 'callback', {@SliderCB, 'phi1'});
+S.phi1Slider = uicontrol('style','slide', 'unit', 'normalized', 'position', [0.1 0.048 0.8 0.025], 'min', 0, 'max', 1, 'value', 0, 'sliderstep',[0.01 0.1]/(increasePhi1LimitsFactor*increaseSliderStepResolutionFactor), 'callback', {@SliderCB, 'phi1'});
 txtphi1 = uicontrol('Style','text', 'unit', 'normalized', 'position', [0 0.048 0.1 0.025], 'String', '1st order phase correction', 'BackgroundColor', "White", 'HorizontalAlignment', 'Center');  
-S.pivotSlider = uicontrol('style','slide', 'unit', 'normalized', 'position', [0.1 0.023 0.8 0.025], 'min', min(X_ppm_rel), 'max', max(X_ppm_rel), 'value', X_ppm_rel(maxIndex), 'sliderstep',[0.01 0.1]/increaseSliderStepResolutionFactor, 'callback', {@SliderCB, 'pivot'});
+S.pivotSlider = uicontrol('style','slide', 'unit', 'normalized', 'position', [0.1 0.023 0.8 0.025], 'min', 0, 'max', 1, 'value', X_ppm_rel(maxIndex)/max(X_ppm_rel), 'sliderstep',[0.01 0.1]/increaseSliderStepResolutionFactor, 'callback', {@SliderCB, 'pivot'});
 txtPivot = uicontrol('Style','text', 'unit', 'normalized', 'position', [0 0.023 0.1 0.025], 'String', 'Pivot', 'BackgroundColor', "White", 'HorizontalAlignment', 'Center');   
 update(S);
 guidata(S.fh, S);
@@ -132,14 +132,15 @@ ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fonts
 pause;
 
 phi0 = get(S.phi0Slider, "Value");
-phi1 = get(S.phi1Slider, "Value")/max(X_ppm_rel);
+phi1 = get(S.phi1Slider, "Value");
 pivot = get(S.pivotSlider, "Value");
 
 %Apply 0th and 1st order phase correction
-X_ppm_rel = X_ppm_rel-pivot*phi1;
-X_Hz_rel = X_Hz_rel-(10^(-6))*pivot*phi1*f_ref;
-C = exp(-1i*(phi0-pivot*phi1));
-sReal = real(fftshift(fft(C.*Data)));
+p = min(X_ppm_rel)+S.pivot*(max(X_ppm_rel)-min(X_ppm_rel));
+shift = round(p*phi1);
+tempData = circshift(Data, -shift);
+C = exp(-1i*(phi0-shift));
+sReal = real(fftshift(fft(C.*tempData)));
 
 %Baseline correction and normalization -> Sinnvoll? Tobi fragen
 sReal = sReal-median(sReal); %Wenn das noise level konsequent über 0 wäre, wäre doch der median entsprechend über 0? nicht mean verwenden, da peaks nicht mit einbezogen werden sollen
@@ -166,9 +167,9 @@ if attemptLorentzianFit
     annotation('textbox',[0.53+annotationXOffset 0.69 0.2 0.2],'String',['Fit coefficients with 95% confidence bounds: ', strtrim(str1+"   (Hz)"), strtrim(strrep(str2,"x0","\omega_0")+"   (Hz)"), strtrim(str3+"   (ms)")],'EdgeColor','none',"FitBoxToText","on", "Color","r","FontSize",8);
     hold on;
     plot(ax,ft,"r");
-    legend("Amplitude (a. u.)", "Fit with Lorentzian", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 10, "Location", "Northwest");
+    legend("Real part of the spectrum", "Fit with Lorentzian", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 10, "Location", "Northwest");
 else
-    legend("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 10, "Location", "Northwest");
+    legend("Real part of the spectrum", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 10, "Location", "Northwest");
 end
 xlim([min(X_Hz_rel) max(X_Hz_rel)]);
 xlabel("Chemical Shift (Hz)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14); 
@@ -202,9 +203,9 @@ if attemptLorentzianFit
     annotation('textbox',[0.53+annotationXOffset 0.69 0.2 0.2],'String',['Fit coefficients with 95% confidence bounds: ', strtrim(str1+"   (Hz)"), strtrim(strrep(str2,"x0","\omega_0")+"   (ppm)"), strtrim(str3+"   (ms)")],'EdgeColor','none',"FitBoxToText","on", "Color","r","FontSize",8);
     hold on;
     plot(ax,ft,"r");
-    legend("Amplitude (a. u.)", "Fit with Lorentzian", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 10, "Location", "Northwest");
+    legend("Real part of the spectrum", "Fit with Lorentzian", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 10, "Location", "Northwest");
 else
-    legend("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 10, "Location", "Northwest");
+    legend("Real part of the spectrum", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 10, "Location", "Northwest");
 end
 xlim([min(X_ppm_rel) max(X_ppm_rel)]);
 xlabel("Chemical Shift (ppm)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14); 
@@ -225,23 +226,13 @@ end
 
 function update(S)
     X = S.X_ppm_rel;
-    p = S.pivot;
-    phi1Temp = S.phi1/max(X);
-    X = X-p*phi1Temp;
+    p = min(X)+S.pivot*(max(X)-min(X));
+    phi1Temp = S.phi1;
     phi0Temp = S.phi0;
-    tempData = S.Data;
-    C = exp(-1i*(phi0Temp-p*phi1Temp));
+    shift = round(p*phi1Temp);
+    tempData = circshift(S.Data, -shift);
+    C = exp(-1i*(phi0Temp-shift));
     realSpectrum = real(fftshift(fft(C.*tempData)));
     set(S.p1, 'YData', realSpectrum); 
-    set(S.p1, 'XData',  X); 
-    % pivotMin = get(S.pivotSlider, "Min");
-    % pivotMax = get(S.pivotSlider, "Max");
-    % if p>pivotMax
-    %     set(S.pivotSlider, "Max", p)
-    % end
-    % if p<pivotMin
-    %     set(S.pivotSlider, "Min", p)
-    % end
-    % set(S.pivotSlider, "Value", p);
     set(S.l, "Value", p);
 end

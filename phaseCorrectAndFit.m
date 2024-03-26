@@ -87,14 +87,14 @@ saveas(fig, path+chemicalSpecies+"_phase.svg");
 
 %Plot modulus of spectrum
 fig = figure('WindowState', 'maximized');
-plot(X_Hz_rel, (abs(spectrum)-median(abs(spectrum)))/max(abs(spectrum)-median(abs(spectrum)))); %Rough baseline correction
+plot(X_ppm_rel, (abs(spectrum)-median(abs(spectrum)))/max(abs(spectrum)-median(abs(spectrum)))); %Rough baseline correction
 legend("Spectrum", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 10, "Location", "Northwest");
 title("Modulus of the spectrum of "+chemicalSpecies);
-xlabel("Chemical Shift (Hz)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
+xlabel("Chemical Shift (ppm)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 
-saveas(fig, path+chemicalSpecies+"_Hz_Modulus.fig");
-saveas(fig, path+chemicalSpecies+"_Hz_Modulus.svg");
+saveas(fig, path+chemicalSpecies+"_ppm_Modulus.fig");
+saveas(fig, path+chemicalSpecies+"_ppm_Modulus.svg");
 
 close all;
 
@@ -109,7 +109,7 @@ S.phi1 = 0;
 sReal = real(spectrum);
 S.p1 = plot(S.ax, X_ppm_rel, sReal);
 hold on;
-S.pivot = (X_ppm_rel(maxIndex)-min(X_ppm_rel))/(max(X_ppm_rel)-min(X_ppm_rel));
+S.pivot = X_ppm_rel(maxIndex);
 hold on;
 Y = median(sReal)*ones(length(X_ppm_rel));
 Y = [Y(1) Y(end)];
@@ -118,9 +118,9 @@ S.p2 = plot(S.ax, X, Y, "Color", "m");
 S.l = xline(S.pivot);
 S.phi0Slider = uicontrol('style', 'slider', 'unit','normalized', 'position', [0.1 0.073 0.8 0.025], 'min', -pi, 'max', pi, 'value', 0, 'sliderstep',[0.01 0.1]/increaseSliderStepResolutionFactor, 'callback', {@SliderCB, 'phi0'}); 
 txtphi0 = uicontrol('Style', 'text', 'unit', 'normalized', 'position', [0 0.073 0.1 0.025], 'String', '0th order phase correction', 'BackgroundColor', "White", 'HorizontalAlignment', 'Center');
-S.phi1Slider = uicontrol('style','slide', 'unit', 'normalized', 'position', [0.1 0.048 0.8 0.025], 'min', 0, 'max', 1, 'value', 0, 'sliderstep',[0.01 0.1]/(increasePhi1LimitsFactor*increaseSliderStepResolutionFactor), 'callback', {@SliderCB, 'phi1'});
+S.phi1Slider = uicontrol('style','slide', 'unit', 'normalized', 'position', [0.1 0.048 0.8 0.025], 'min', 0, 'max', length(X_ppm_rel), 'value', 0, 'sliderstep',[0.01 0.1]/(increasePhi1LimitsFactor*increaseSliderStepResolutionFactor), 'callback', {@SliderCB, 'phi1'});
 txtphi1 = uicontrol('Style','text', 'unit', 'normalized', 'position', [0 0.048 0.1 0.025], 'String', '1st order phase correction', 'BackgroundColor', "White", 'HorizontalAlignment', 'Center');  
-S.pivotSlider = uicontrol('style','slide', 'unit', 'normalized', 'position', [0.1 0.023 0.8 0.025], 'min', 0, 'max', 1, 'value', (X_ppm_rel(maxIndex)-min(X_ppm_rel))/(max(X_ppm_rel)-min(X_ppm_rel)), 'sliderstep',[0.01 0.1]/increaseSliderStepResolutionFactor, 'callback', {@SliderCB, 'pivot'});
+S.pivotSlider = uicontrol('style','slide', 'unit', 'normalized', 'position', [0.1 0.023 0.8 0.025], 'min', min(X_ppm_rel), 'max', max(X_ppm_rel), 'value', X_ppm_rel(maxIndex), 'sliderstep',[0.01 0.1]/increaseSliderStepResolutionFactor, 'callback', {@SliderCB, 'pivot'});
 txtPivot = uicontrol('Style','text', 'unit', 'normalized', 'position', [0 0.023 0.1 0.025], 'String', 'Pivot', 'BackgroundColor', "White", 'HorizontalAlignment', 'Center');   
 update(S);
 guidata(S.fh, S);
@@ -132,15 +132,14 @@ ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fonts
 pause;
 
 phi0 = get(S.phi0Slider, "Value");
-phi1 = get(S.phi1Slider, "Value");
-pivot = get(S.pivotSlider, "Value");
+phi1 = round(get(S.phi1Slider, "Value"));
+p = get(S.pivotSlider, "Value");
 
 %Apply 0th and 1st order phase correction
-p = min(X_ppm_rel)+S.pivot*(max(X_ppm_rel)-min(X_ppm_rel));
-shift = round(p*phi1);
-tempData = circshift(Data, -shift);
-C = exp(-1i*(phi0-shift));
-sReal = real(fftshift(fft(C.*tempData)));
+deltaT = mean(diff(X_ppm_rel));
+tempData = circshift(Data, -phi1);
+C = exp(-1i*(phi0+p*phi1*deltaT));
+sReal = real(fftshift(C.*fft(tempData)));
 
 %Baseline correction and normalization -> Sinnvoll? Tobi fragen
 sReal = sReal-median(sReal); %Wenn das noise level konsequent über 0 wäre, wäre doch der median entsprechend über 0? nicht mean verwenden, da peaks nicht mit einbezogen werden sollen
@@ -225,14 +224,14 @@ function SliderCB(aSlider, EventData, Param)
 end
 
 function update(S)
-    X = S.X_ppm_rel;
-    p = min(X)+S.pivot*(max(X)-min(X));
-    phi1Temp = S.phi1;
-    phi0Temp = S.phi0;
-    shift = round(p*phi1Temp);
-    tempData = circshift(S.Data, -shift);
-    C = exp(-1i*(phi0Temp-shift));
-    realSpectrum = real(fftshift(fft(C.*tempData)));
+    %X = S.X_ppm_rel;
+    deltaT = mean(diff(S.X_ppm_rel));
+    p = S.pivot;
+    phi1 = round(S.phi1);
+    phi0 = S.phi0;
+    tempData = circshift(S.Data, -phi1);
+    C = exp(-1i*(phi0+p*phi1*deltaT));
+    realSpectrum = real(fftshift(C.*fft(tempData)));
     set(S.p1, 'YData', realSpectrum); 
-    set(S.l, "Value", p);
+    set(S.l, "Value", S.pivot);
 end

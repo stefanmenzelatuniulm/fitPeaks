@@ -51,8 +51,8 @@ end
 
 title("FID of "+chemicalSpecies);
 xlabel("$t$ (ms)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
+xlim([min(X_FID) max(X_FID)]);
 ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
-
 saveas(fig, path+chemicalSpecies+"_FID.fig");
 saveas(fig, path+chemicalSpecies+"_FID.svg");
 
@@ -79,6 +79,7 @@ fig = figure('WindowState', 'maximized');
 plot(X_Sample, angle(spectrum)+pi); 
 legend("Phase angle", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 10, "Location", "Northwest");
 title("Phase angle of the spectrum of "+chemicalSpecies);
+xlim([min(X_Sample) max(X_Sample)]);
 xlabel("Sample", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 ylabel("Phase angle (rad)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 
@@ -90,6 +91,7 @@ fig = figure('WindowState', 'maximized');
 plot(X_ppm_rel, (abs(spectrum)-median(abs(spectrum)))/max(abs(spectrum)-median(abs(spectrum)))); %Rough baseline correction
 legend("Spectrum", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 10, "Location", "Northwest");
 title("Modulus of the spectrum of "+chemicalSpecies);
+xlim([min(X_ppm_rel) max(X_ppm_rel)]);
 xlabel("Chemical Shift (ppm)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 
@@ -126,6 +128,7 @@ update(S);
 guidata(S.fh, S);
 title("Click on sliders, then select pivot and adjust sliders with arrow keys for 0th and 1st order phase correction, then minimize figure and press Enter in Command Window");
 legend("Real part of the spectrum", "Median of the real part of the spectrum $$\approx$$ noise floor", "Pivot", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 10, "Location", "Northwest")
+xlim([min(X_ppm_rel) max(X_ppm_rel)]);
 xlabel("Chemical Shift (ppm)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14); 
 ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 
@@ -136,9 +139,10 @@ phi1 = round(get(S.phi1Slider, "Value"));
 p = get(S.pivotSlider, "Value");
 
 %Apply 0th and 1st order phase correction
-deltaT = mean(diff(X_ppm_rel));
-tempData = circshift(Data, -phi1);
-C = exp(-1i*(phi0+p*phi1*deltaT));
+[~, pivotIndex] = min(abs(S.X_ppm_rel-p));
+tempData = circshift(S.Data, -phi1);
+realSpectrumTemp = real(fftshift(fft(tempData)));
+C = exp(-1i*(angle(realSpectrumTemp(pivotIndex))+phi0));                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
 sReal = real(fftshift(C.*fft(tempData)));
 
 %Baseline correction and normalization -> Sinnvoll? Tobi fragen
@@ -224,13 +228,13 @@ function SliderCB(aSlider, EventData, Param)
 end
 
 function update(S)
-    %X = S.X_ppm_rel;
-    deltaT = mean(diff(S.X_ppm_rel));
     p = S.pivot;
-    phi1 = round(S.phi1);
+    [~, pivotIndex] = min(abs(S.X_ppm_rel-p));
     phi0 = S.phi0;
+    phi1 = round(S.phi1);
     tempData = circshift(S.Data, -phi1);
-    C = exp(-1i*(phi0+p*phi1*deltaT));
+    realSpectrumTemp = real(fftshift(fft(tempData)));
+    C = exp(-1i*(angle(realSpectrumTemp(pivotIndex))+phi0));                                                                                                                                                                                                                                                                                                                                                                                                                                                           
     realSpectrum = real(fftshift(C.*fft(tempData)));
     set(S.p1, 'YData', realSpectrum); 
     set(S.l, "Value", S.pivot);

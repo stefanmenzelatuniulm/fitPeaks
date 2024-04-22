@@ -4,14 +4,14 @@ clc;
 
 %-------------SETTINGS-------------
 
-TR = 60000; %ms
+TR = 30000; %ms
 gamma13C = 10.7084*10^6; %gyromagnetic ration of 13C (Hz/T)
 B0 = 3; %B0 of the scanner (T)
 rf_center_ppm = 169.7; %Center of the RF pulse (ppm) %IST SCHON RELATIV ZU TMS
 bw = 1200; %Bandwidth of the RF pulse (Hz)
 chemicalSpecies = "Bicarbonate, Alanine, Lactate"; %Name(s) of the chemical species in the spectrum
 scaleHzFit = 10; %Scaling factor for the x axis only in the context of the Lorentzian fit (CARE: very sensitive)
-scalePpmFit = 0.28;
+scalePpmFit = 0.24;
 increaseSliderStepResolutionFactor = 32; %Increases the default slider resolution by this factor, relevant for phase correction
 increasePhi1LimitsFactor = 5;
 annotationXOffset = 0; %Offset of fit parameter annotation in X direction, if there is significant overlap with the plot
@@ -90,7 +90,7 @@ saveas(fig, path+chemicalSpecies+"_phase.svg");
 fig = figure('WindowState', 'maximized');
 plot(X_ppm_rel, (abs(spectrum)-median(abs(spectrum)))/max(abs(spectrum)-median(abs(spectrum)))); %Rough baseline correction
 legend("Spectrum", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 10, "Location", "Northwest");
-title("Modulus of the spectrum of "+chemicalSpecies);
+title("Modulus of the spectrum of "+chemicalSpecies, "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 xlim([min(X_ppm_rel) max(X_ppm_rel)]);
 xlabel("Chemical Shift (ppm)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);

@@ -56,6 +56,7 @@ xlim([min(X_FID) max(X_FID)]);
 ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 14);
 saveas(fig, path+chemicalSpecies+"_FID.fig");
 saveas(fig, path+chemicalSpecies+"_FID.svg");
+saveas(fig, path+chemicalSpecies+"_FID.png");
 
 close all;
 
@@ -86,6 +87,7 @@ ylabel("Phase angle (rad)", "interpreter", "latex", 'fontweight', 'bold', 'fonts
 
 saveas(fig, path+chemicalSpecies+"_phase.fig");
 saveas(fig, path+chemicalSpecies+"_phase.svg");
+saveas(fig, path+chemicalSpecies+"_phase.png");
 
 %Plot modulus of spectrum
 fig = figure('WindowState', 'maximized');
@@ -98,6 +100,7 @@ ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fonts
 
 saveas(fig, path+chemicalSpecies+"_ppm_Modulus.fig");
 saveas(fig, path+chemicalSpecies+"_ppm_Modulus.svg");
+saveas(fig, path+chemicalSpecies+"_ppm_Modulus.png");
 
 close all;
 
@@ -181,6 +184,7 @@ ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fonts
 
 saveas(fig, path+chemicalSpecies+"_Hz.fig");
 saveas(fig, path+chemicalSpecies+"_Hz.svg");
+saveas(fig, path+chemicalSpecies+"_Hz.png");
 
 close all;
 
@@ -217,6 +221,7 @@ ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fonts
 
 saveas(fig, path+chemicalSpecies+"_ppm.fig");
 saveas(fig, path+chemicalSpecies+"_ppm.svg");
+saveas(fig, path+chemicalSpecies+"_ppm.png");
 
 close all;
 

@@ -16,7 +16,7 @@ increaseSliderStepResolutionFactor = 32; %Increases the default slider resolutio
 increasePhi1LimitsFactor = 5;
 annotationXOffset = 0; %Offset of fit parameter annotation in X direction, if there is significant overlap with the plot
 floorOffset = 0.015;
-path = "C:\Users\Stefan Menzel\Desktop\Matlab\MR_Data\2024_04_19\Overview\140"; %Path to data
+path = "C:\Users\menze\Desktop\Matlab\MR_Data\140"; %Path to data
 attemptLorentzianFit = false; %Attempt to fit single Lorentzian
 attemptFIDFit = false;
 

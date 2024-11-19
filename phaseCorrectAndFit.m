@@ -69,6 +69,7 @@ f_ref = gamma13C*B0; %Hz
 rf_center = (10^(-6))*rf_center_ppm*f_ref; %Frequency of RF pulse center (Hz) relative zu TMS -> Tobi : SO RECHNET MAN PPM IN HZ UM, (f-fref/fref) nur einmal beim Scanner bereits kalibriert
 X_Hz_rel = linspace(-bw/2, bw/2, length(Data)); %Chemical shift / Offresonance (Hz) relative to center of RF pulse
 X_ppm_rel = (X_Hz_rel/f_ref)*10^6+rf_center_ppm;
+X_Hz_rel = X_Hz_rel+rf_center;
 X_Sample = linspace(1, length(Data), length(Data));
 
 %Automatic 0th order phase correction with respect to highest peak

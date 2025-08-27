@@ -8,14 +8,14 @@ TR = 100000; %ms
 gamma13C = 10.7084*10^6; %gyromagnetic ration of 13C (Hz/T)
 %gamma13C = 42.577*10^6;
 B0 = 3; %B0 of the scanner (T)
-rf_center_ppm = 174.31; %Center of the RF pulse (ppm) %IST SCHON RELATIV ZU TMS
+rf_center_ppm = 168; %Center of the RF pulse (ppm) %IST SCHON RELATIV ZU TMS
 bw = 1200; %Bandwidth of the RF pulse (Hz)
-chemicalSpecies = "Bicarbonate, Ethylacetate, Alanine, Lactate Test"; %Name(s) of the chemical species in the spectrum
-path = "D:\Matlab\MR_Data\Preliminary Measurements\Overview\14"; %Path to data
-attemptLorentzianFit = true; %Attempt to fit single Lorentzian
-notOutlierDomainLeft = [177 166 173.5 155];
-notOutlierDomainRight = [183 170 175.5 159];
-additionalFileStrings=["LactateFit" "EthylacetateFit" "AlanineFit" "BicarbonateFit"];
+chemicalSpecies = "Bicarbonate, Ethylacetate, Alanine, Lactate"; %Name(s) of the chemical species in the spectrum
+path = "G:\Daten\Matlab\MR_Data\31_07_2025\AlaNacT1\ConvertedData\Spec\45"; %Path to data
+attemptLorentzianFit = false; %Attempt to fit single Lorentzian
+notOutlierDomainLeft = [-inf];
+notOutlierDomainRight = [inf];
+additionalFileStrings=["16_Averages"];
 
 %-------------END OF SETTINGS-------------
 count = 0;
@@ -106,6 +106,7 @@ for additionalFileString = additionalFileStrings
         xlabel("Chemical Shift (ppm)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 18);
         ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 18);
         ax = gca;
+        set(gca, 'XDir','reverse');
         ax.FontSize = 18;
         drawnow;
     
@@ -284,6 +285,7 @@ for additionalFileString = additionalFileStrings
     ax = gca;
     ax.FontSize = 18;
     grid off;
+    set(gca, 'XDir','reverse');
     drawnow;
 
     saveas(fig, path+chemicalSpecies+additionalFileString+"_ppm.fig");

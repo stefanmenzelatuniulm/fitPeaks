@@ -11,11 +11,15 @@ B0 = 3; %B0 of the scanner (T)
 rf_center_ppm = 174.31; %Center of the RF pulse (ppm) %IST SCHON RELATIV ZU TMS
 bw = 1200; %Bandwidth of the RF pulse (Hz)
 chemicalSpecies = "Lactate"; %Name(s) of the chemical species in the spectrum
-path = "C:\Users\Stefan Menzel\Desktop\Messungen\2025_08_02\4"; %Path to data
+path = "C:\Users\stefan.menzel\Desktop\Daten\Messungen\27_11_2025\LacPB2\Spectrum\2"; %Path to data
 attemptLorentzianFit = true; %Attempt to fit single Lorentzian
 notOutlierDomainLeft = [-inf];
 notOutlierDomainRight = [inf];
 additionalFileStrings=["16_Averages"];
+scalePpmFit=1;
+forceT2s = false;
+forceT2sTo = 60; %ms
+COffsetScaling = 0;
 
 %-------------END OF SETTINGS-------------
 count = 0;
@@ -71,6 +75,7 @@ for additionalFileString = additionalFileStrings
 
     %Determine x Axis
     f_ref = gamma13C*B0; %Hz
+    forceT2sTo = (1/(pi*forceT2sTo/1000))*(10^(6))/f_ref; %FWHM in ppm
     rf_center = (10^(-6))*rf_center_ppm*f_ref; %Frequency of RF pulse center (Hz) relative zu TMS -> Tobi : SO RECHNET MAN PPM IN HZ UM, (f-fref/fref) nur einmal beim Scanner bereits kalibriert
     X_Hz_rel = linspace(-bw/2, bw/2, length(Data)); %Chemical shift / Offresonance (Hz) relative to center of RF pulse
     X_ppm_rel = (X_Hz_rel/f_ref)*10^6+rf_center_ppm;
@@ -96,26 +101,26 @@ for additionalFileString = additionalFileStrings
     % saveas(fig, path+chemicalSpecies+"_phase.svg");
     % saveas(fig, path+chemicalSpecies+"_phase.png");
 
-    if count == 1
-        %Plot modulus of spectrum
-        fig = figure('WindowState', 'maximized');
-        plot(X_ppm_rel, floorOffset+(abs(spectrum)-median(abs(spectrum)))/max(abs(spectrum)-median(abs(spectrum)))); %Rough baseline correction
-        legend("Spectrum", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 18, "Location", "Northwest");
-        title("Spectrum of "+chemicalSpecies, "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 18);
-        xlim([min(X_ppm_rel) max(X_ppm_rel)]);
-        xlabel("Chemical Shift (ppm)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 18);
-        ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 18);
-        ax = gca;
-        set(gca, 'XDir','reverse');
-        ax.FontSize = 18;
-        drawnow;
-    
-        saveas(fig, path+chemicalSpecies+"_ppm_Modulus.fig");
-        saveas(fig, path+chemicalSpecies+"_ppm_Modulus.svg");
-        saveas(fig, path+chemicalSpecies+"_ppm_Modulus.png");
-    
-        close all;
-    end
+    % if count == 1
+    %     %Plot modulus of spectrum
+    %     fig = figure('WindowState', 'maximized');
+    %     plot(X_ppm_rel, floorOffset+(abs(spectrum)-median(abs(spectrum)))/max(abs(spectrum)-median(abs(spectrum)))); %Rough baseline correction
+    %     legend("Spectrum", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 18, "Location", "Northwest");
+    %     title("Spectrum of "+chemicalSpecies, "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 18);
+    %     xlim([min(X_ppm_rel) max(X_ppm_rel)]);
+    %     xlabel("Chemical Shift (ppm)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 18);
+    %     ylabel("Amplitude (a. u.)", "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 18);
+    %     ax = gca;
+    %     set(gca, 'XDir','reverse');
+    %     ax.FontSize = 18;
+    %     drawnow;
+    % 
+    %     saveas(fig, path+chemicalSpecies+"_ppm_Modulus.fig");
+    %     saveas(fig, path+chemicalSpecies+"_ppm_Modulus.svg");
+    %     saveas(fig, path+chemicalSpecies+"_ppm_Modulus.png");
+    % 
+    %     close all;
+    % end
 
     %Determine 0th and 1st order phase correction
     disp("Adjust 0th and 1st order phase correction");
@@ -210,11 +215,14 @@ for additionalFileString = additionalFileStrings
     ax = gca;
     plot(ax, X_ppm_rel, sReal);
     title("Spectrum of "+chemicalSpecies, "interpreter", "latex", 'fontweight', 'bold', 'fontsize', 18);
-    scalePpmFit=1;
     fitfunction="COff+(1/pi)*((FWHM/2)/((x/"+num2str(scalePpmFit)+"-x0/"+num2str(scalePpmFit)+")^2+(FWHM/2)^2))";
     %fitfunction="(1/pi)*((FWHM/2)/((x/"+num2str(scalePpmFit)+"-x0/"+num2str(scalePpmFit)+")^2+(FWHM/2)^2))";
     coeffs=["FWHM" "x0" "COff"];
-    options=fitoptions('Method','NonlinearLeastSquares','Lower',[-inf -inf -0.02],'Upper',[inf inf 0.02],'StartPoint',[1 rf_center_ppm 0]);
+    if forceT2s
+        options=fitoptions('Method','NonlinearLeastSquares','Lower',[forceT2sTo -inf -0.02*COffsetScaling],'Upper',[forceT2sTo inf 0.02*COffsetScaling],'StartPoint',[forceT2sTo rf_center_ppm 0*COffsetScaling]);
+    else
+        options=fitoptions('Method','NonlinearLeastSquares','Lower',[-inf -inf -0.02*COffsetScaling],'Upper',[inf inf 0.02*COffsetScaling],'StartPoint',[1 rf_center_ppm 0*COffsetScaling]);
+    end
     %coeffs=["FWHM" "x0"];
     %options=fitoptions('Method','NonlinearLeastSquares','Lower',[-inf -inf],'Upper',[inf inf],'StartPoint',[1 159]);%rf_center_ppm
     fttype = fittype(fitfunction,coefficients=coeffs);
@@ -256,7 +264,11 @@ for additionalFileString = additionalFileStrings
         fitfunction="COff+(1/pi)*((FWHM/2)/((x/scalePpmFit-x0/scalePpmFit)^2+(FWHM/2)^2))";
         %fitfunction="(1/pi)*((FWHM/2)/((x/"+num2str(scalePpmFit)+"-x0/"+num2str(scalePpmFit)+")^2+(FWHM/2)^2))";
         coeffs=["FWHM" "x0" "COff" "scalePpmFit"];
-        options=fitoptions('Method','NonlinearLeastSquares','Lower',[0 0 -inf 0],'Upper',[inf inf inf 1],'StartPoint',[FWHMofPeak w0ofPeak 0 1]);
+        if forceT2s
+            options=fitoptions('Method','NonlinearLeastSquares','Lower',[forceT2sTo 0 -99999999*COffsetScaling 1],'Upper',[forceT2sTo inf 99999999*COffsetScaling 1],'StartPoint',[forceT2sTo w0ofPeak 0*COffsetScaling 1]);
+        else
+            options=fitoptions('Method','NonlinearLeastSquares','Lower',[0 0 -9999999*COffsetScaling 0],'Upper',[inf inf 9999999*COffsetScaling 1],'StartPoint',[FWHMofPeak w0ofPeak 0*COffsetScaling 1]);
+        end
         %coeffs=["FWHM" "x0"];
         %options=fitoptions('Method','NonlinearLeastSquares','Lower',[-inf -inf],'Upper',[inf inf],'StartPoint',[1 159]);%rf_center_ppm
         fttype = fittype(fitfunction,coefficients=coeffs);
@@ -289,7 +301,7 @@ for additionalFileString = additionalFileStrings
     drawnow;
 
     saveas(fig, path+chemicalSpecies+additionalFileString+"_ppm.fig");
-    saveas(fig, path+chemicalSpecies+additionalFileString+"_ppm.svg");
+    %saveas(fig, path+chemicalSpecies+additionalFileString+"_ppm.svg");
     saveas(fig, path+chemicalSpecies+additionalFileString+"_ppm.png");
 
     close all;
